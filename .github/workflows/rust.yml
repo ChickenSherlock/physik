@@ -21,7 +21,7 @@ jobs:
     - name: install
       run: sudo apt-get install librust-atk-dev
     - name: Install Opencv
-      run: sudo apt get install libopencv-dev
+      run: sudo apt-get install libopencv-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
