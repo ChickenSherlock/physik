@@ -1,2 +1,1 @@
 <h1>The better Photo booth written in Rust</h1>
-[![Rust](https://github.com/ChickenSherlock/physik/actions/workflows/rust.yml/badge.svg)](https://github.com/ChickenSherlock/physik/actions/workflows/rust.yml)

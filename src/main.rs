@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use gtk::{Application, Image, glib, ApplicationWindow,Grid,Overlay};
+use gtk::{Application, Image, glib, ApplicationWindow, Grid, Overlay, Button};
 use gdk_pixbuf::{Pixbuf,Colorspace};
 use gtk::gio::ffi::G_NOTIFICATION_PRIORITY_HIGH;
 use gtk::glib::{Continue, MainContext, Priority};
@@ -15,12 +15,13 @@ use opencv::{
     types,
     videoio,
     core,
+    imgcodecs::imwrite
 };
 
 const APP_ID: &str = "me.BETTER_PHOTO_BOOTH.com";
-const CAMERA_WIDTH: i64 = 1920;
-const CAMERA_HEIGHT: i64 = 1080;
-const ROW_STRIDE: i64 = CAMERA_WIDTH * 3;
+const CAMERA_WIDTH: i32 = 1280;
+const CAMERA_HEIGHT: i32 = 720;
+const ROW_STRIDE: i32 = CAMERA_WIDTH * 3;
 
 fn create_camera()->Result<(videoio::VideoCapture,Mat)>{
     let mut camera = videoio::VideoCapture::new(0, videoio::CAP_ANY)?;
@@ -28,7 +29,7 @@ fn create_camera()->Result<(videoio::VideoCapture,Mat)>{
     Ok((camera,img))
 }
 
-fn camera_stream(sender: glib::SyncSender<((Vec<u8>))>){
+fn camera_stream(sender: glib::Sender<((Vec<u8>))>){
     thread::spawn(move||{
         let (mut camera, mut mat) =if let Ok((mut camera, mut mat)) =create_camera() { (camera, mat) } else {todo!("")};
         loop {
@@ -54,17 +55,49 @@ fn draw_ui(app: &Application) {
         .vexpand(true)
         .build();
 
-    let stream_overlay = Overlay::builder()
-        .hexpand(true)
-        .vexpand(true)
+
+    let button = Button::builder()
+        .label("Foto aufnehmen")
+        .hexpand(false)
+        .vexpand(false)
+        .width_request(100)
+        .height_request(100)
+        .build();
+
+    let grid = Grid::builder()
+        .margin_top(CAMERA_HEIGHT-100)
+        .margin_start((CAMERA_WIDTH/2)-50)
+        .build();
+    grid.attach(&button,1,1,1,1);
+
+    let overlay = Overlay::builder()
         .child(&stream)
         .build();
 
-    let (pixbuf_sender, pixbuf_receiver) = glib::MainContext::sync_channel(glib::Priority::HIGH,2073600);
+
+    overlay.add_overlay(&grid);
+
+    let stream_clone = stream.clone();
+
+
+    let (pixbuf_sender, pixbuf_receiver) = glib::MainContext::channel(glib::Priority::HIGH);
 
 
 
     camera_stream(pixbuf_sender);
+
+    button.connect_button_press_event(|_,_|{
+        thread::spawn(move||{
+            let (mut camera, mut mat) =if let Ok((mut camera, mut mat)) =create_camera() { (camera, mat) } else {todo!("")};
+            thread::sleep(Duration::from_secs(3));
+            camera.read(&mut mat).expect("Camera not available");
+            let mut dest = Mat::default();
+            let empty_array:opencv::core::Vector<i32> = opencv::core::Vector::new();
+            core::flip(&mat, &mut dest, 1).unwrap();
+            imwrite("/Users/benediktkarli/Desktop/physik/v2/src/test.png",&dest,&empty_array)
+        });
+        Inhibit(true)
+    });
 
     pixbuf_receiver.attach(
         None, move|data| {
@@ -73,9 +106,9 @@ fn draw_ui(app: &Application) {
                 Colorspace::Rgb,
                 false,
                 8,
-                1920,
-                1080,
-                5760
+                CAMERA_WIDTH,
+                CAMERA_HEIGHT,
+                ROW_STRIDE
             );
             stream.set_from_pixbuf(Some(&pixbuf));
             glib::Continue(true)
@@ -84,7 +117,12 @@ fn draw_ui(app: &Application) {
 
     let main_box = Grid::builder()
         .build();
-    main_box.attach(&stream_overlay,0,1,1,1);
+    main_box.attach(&overlay,0,1,1,1);
+
+
+
+
+
     let window = ApplicationWindow::builder()
         .application(app)
         .resizable(false)
