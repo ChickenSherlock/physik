@@ -18,6 +18,10 @@ use opencv::{
     imgcodecs::imwrite
 };
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use crate::glib::Sender;
+
+
 const APP_ID: &str = "me.BETTER_PHOTO_BOOTH.com";
 const CAMERA_WIDTH: i32 = 1280;
 const CAMERA_HEIGHT: i32 = 720;
@@ -29,20 +33,24 @@ fn create_camera()->Result<(videoio::VideoCapture,Mat)>{
     Ok((camera,img))
 }
 
-fn camera_stream(sender: glib::Sender<((Vec<u8>))>){
+fn camera_stream(sender: glib::Sender<((Vec<u8>))>, cambool: Arc<AtomicBool>){
+
     thread::spawn(move||{
         let (mut camera, mut mat) =if let Ok((mut camera, mut mat)) =create_camera() { (camera, mat) } else {todo!("")};
+
         loop {
-            camera.read(&mut mat).expect("Camera not available");
-            let mut image = Mat::default();
-            cvt_color(&mat, &mut image, opencv::imgproc::COLOR_BGR2RGB, 0).unwrap();
-            let image_copy = image.clone();
-            let mut dest = Mat::default();
-            core::flip(&image_copy, &mut dest, 1).unwrap();
-            let data = dest.data_bytes().unwrap();
-            let message = data.to_vec();
-            sender.send(message).expect("Failed");
-            thread::sleep(Duration::new(0, 3000000))
+            if !cambool.load(Ordering::Relaxed){
+                camera.read(&mut mat).expect("Camera not available");
+                let mut image = Mat::default();
+                cvt_color(&mat, &mut image, opencv::imgproc::COLOR_BGR2RGB, 0).unwrap();
+                let image_copy = image.clone();
+                let mut dest = Mat::default();
+                core::flip(&image_copy, &mut dest, 1).unwrap();
+                let data = dest.data_bytes().unwrap();
+                let message = data.to_vec();
+                sender.send(message).expect("Failed");
+            }thread::sleep(Duration::new(0, 3000000))
+
         };
 
     });
@@ -50,6 +58,10 @@ fn camera_stream(sender: glib::Sender<((Vec<u8>))>){
 
 
 fn draw_ui(app: &Application) {
+    let cambool = Arc::new(AtomicBool::new(false));
+    let cambool_1 = cambool.clone();
+
+
     let stream = Image::builder()
         .hexpand(true)
         .vexpand(true)
@@ -84,17 +96,21 @@ fn draw_ui(app: &Application) {
 
 
 
-    camera_stream(pixbuf_sender);
+    camera_stream(pixbuf_sender,cambool_1);
 
-    button.connect_button_press_event(|_,_|{
+    button.connect_button_press_event(move|_,_|{
+
+        let cambool_2 = cambool.clone();
         thread::spawn(move||{
+            cambool_2.store(true,Ordering::Relaxed);
             let (mut camera, mut mat) =if let Ok((mut camera, mut mat)) =create_camera() { (camera, mat) } else {todo!("")};
             thread::sleep(Duration::from_secs(3));
             camera.read(&mut mat).expect("Camera not available");
             let mut dest = Mat::default();
             let empty_array:opencv::core::Vector<i32> = opencv::core::Vector::new();
             core::flip(&mat, &mut dest, 1).unwrap();
-            imwrite("/Users/benediktkarli/Desktop/physik/v2/src/test.png",&dest,&empty_array)
+            imwrite("/Users/benediktkarli/Desktop/physik/v2/src/test.png",&dest,&empty_array);
+            cambool_2.store(false,Ordering::Relaxed);
         });
         Inhibit(true)
     });
