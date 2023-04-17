@@ -20,9 +20,9 @@ jobs:
   upload-assets:
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
