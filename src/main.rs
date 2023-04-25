@@ -15,6 +15,7 @@ use opencv::{
     types,
     videoio,
     core,
+    imgproc::resize,
     imgcodecs::imwrite
 };
 
@@ -34,10 +35,8 @@ fn create_camera()->Result<(videoio::VideoCapture,Mat)>{
 }
 
 fn camera_stream(sender: glib::Sender<((Vec<u8>))>, cambool: Arc<AtomicBool>){
-
     thread::spawn(move||{
         let (mut camera, mut mat) =if let Ok((mut camera, mut mat)) =create_camera() { (camera, mat) } else {todo!("")};
-
         loop {
             if !cambool.load(Ordering::Relaxed){
                 camera.read(&mut mat).expect("Camera not available");
@@ -46,13 +45,14 @@ fn camera_stream(sender: glib::Sender<((Vec<u8>))>, cambool: Arc<AtomicBool>){
                 let image_copy = image.clone();
                 let mut dest = Mat::default();
                 core::flip(&image_copy, &mut dest, 1).unwrap();
-                let data = dest.data_bytes().unwrap();
+                let mut resized_dest = Mat::default();
+                resize(&dest,&mut resized_dest,core::Size::new(1280,720),0.0,0.0,0);
+                let data = resized_dest.data_bytes().unwrap();
                 let message = data.to_vec();
                 sender.send(message).expect("Failed");
-            }thread::sleep(Duration::new(0, 3000000))
-
+                thread::sleep(Duration::new(0, 30000000))
+            }
         };
-
     });
 }
 
@@ -61,12 +61,10 @@ fn draw_ui(app: &Application) {
     let cambool = Arc::new(AtomicBool::new(false));
     let cambool_1 = cambool.clone();
 
-
     let stream = Image::builder()
         .hexpand(true)
         .vexpand(true)
         .build();
-
 
     let button = Button::builder()
         .label("Foto aufnehmen")
@@ -89,17 +87,11 @@ fn draw_ui(app: &Application) {
 
     overlay.add_overlay(&grid);
 
-    let stream_clone = stream.clone();
-
-
     let (pixbuf_sender, pixbuf_receiver) = glib::MainContext::channel(glib::Priority::HIGH);
-
-
 
     camera_stream(pixbuf_sender,cambool_1);
 
     button.connect_button_press_event(move|_,_|{
-
         let cambool_2 = cambool.clone();
         thread::spawn(move||{
             cambool_2.store(true,Ordering::Relaxed);
