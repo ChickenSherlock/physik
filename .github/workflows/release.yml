@@ -32,6 +32,8 @@ jobs:
         run: sudo apt-get install librust-atk-dev
       - name: Install Opencv
         run: sudo apt-get install libopencv-dev
+      - name: install glib
+        run: apt install libglib2.0-dev
       - uses: actions/checkout@v2
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
