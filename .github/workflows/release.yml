@@ -1,0 +1,50 @@
+on:
+  release:
+    types: [created]
+  push:
+
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: taiki-e/create-gh-release-action@v1
+        #with:
+          # (optional)
+          #changelog: CHANGELOG.md
+        env:
+          # (required)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    strategy:
+      matrix:
+        include:
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: install gtk
+        run: sudo apt-get install libgtk-3-dev
+      - name: install
+        run: sudo apt-get install librust-atk-dev
+      - name: Install Opencv
+        run: sudo apt-get install libopencv-dev
+      - uses: actions/checkout@v2
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          # (required)
+          bin: v2
+          # (optional) On which platform to distribute the `.tar.gz` file.
+          # [default value: unix]
+          target: ${{ matrix.target }}
+          tar: unix
+          # (optional) On which platform to distribute the `.zip` file.
+          # [default value: windows]
+          # [possible values: all, unix, windows, none]
+          zip: windows
+        env:
+          # (required)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
