@@ -9,3 +9,7 @@ edition = "2021"
 gtk = { git = "https://github.com/gtk-rs/gtk3-rs.git" }
 gdk-pixbuf = { git = "https://github.com/gtk-rs/gtk-rs-core.git", package = "gdk-pixbuf"}
 opencv = "0.77.0"
+timer = "0.2.0"
+serde = {version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+crossbeam-channel = "0.5.8"
