@@ -33,7 +33,7 @@ jobs:
       - name: Install Opencv
         run: sudo apt-get install libopencv-dev
       - name: install glib
-        run: apt install libglib2.0-dev
+        run: sudo apt install libglib2.0-dev
       - uses: actions/checkout@v2
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
